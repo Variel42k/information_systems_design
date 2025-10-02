@@ -1,3 +1,4 @@
+from pprint import pp
 from typing import List, Dict, Any, Optional
 from statistics import mean
 
@@ -33,8 +34,6 @@ def tv_mean(Tv_samples: List[float]) -> float:
 def h0501_restore_time_score(Tv_avg: float, T_dopV: float) -> float:
     if T_dopV <= 0 or Tv_avg <= 0:
         raise ValueError("Times must be > 0")
-    print(Tv_avg)
-    print(T_dopV)
     return min(1.0, T_dopV / Tv_avg)
 
 
@@ -76,7 +75,7 @@ def compute_all(
     T_dopV: float,
     Tpi_samples: List[float],
     T_dopp: float,
-    P_baz: float = 0.94,
+    P_baz: float,
     metric_weights: Optional[Dict[str, float]] = None,
 ) -> Dict[str, Any]:
     n0401 = h0401_prob_no_failure(Q, N)
@@ -107,22 +106,22 @@ def compute_all(
     quality_factor = relative_criterion
 
     return {
-        "Н0401 — вероятность безотказной работы": n0401,
-        "ТВ — среднее время восстановления, с": tv_avg,
-        "Н0501 — по среднему времени восстановления": n0501,
-        "Н0502 — по времени преобразования (среднее по всем наборам)": n0502_avg,
-        "Метрика 4 — функционирование в заданных режимах": metric4,
-        "Метрика 5 — обработка заданного объема информации": metric5,
-        "Абсолютный показатель критерия «работоспособность»": absolute_criterion,
-        "Относительный показатель критерия «работоспособность»": relative_criterion,
-        "Фактор качества (надежность ПС)": quality_factor,
+        "Н0401 — вероятность безотказной работы (P)": n0401,
+        "ТВ — среднее время восстановления, с (Тв)": tv_avg,
+        "Н0501 — по среднему времени восстановления (Qв)": n0501,
+        "Н0502 — по времени преобразования (среднее по всем наборам) (Qпi)": n0502_avg,
+        "Метрика 4 — функционирование в заданных режимах (mkq)": metric4,
+        "Метрика 5 — обработка заданного объема информации (Pjk m)": metric5,
+        "Абсолютный показатель критерия «работоспособность» (Pij)": absolute_criterion,
+        "Относительный показатель критерия «работоспособность» (Kij)": relative_criterion,
+        "Фактор качества (надежность ПС) (KiФ)": quality_factor,
         "Н0502 — min": min(n0502_list),
         "Н0502 — max": max(n0502_list),
         "Н0502 — count": len(n0502_list),
+        "H502 - list": n0502_list,
         "Примечание": "Метрика 4 = Н0401; Метрика 5 = среднее(Н0501, Н0502_среднее). Веса метрик равные по умолчанию.",
-        "Справка": DOC.strip(),
     }
 
 
-print(compute_all(Q=6, N=1200, Tv_samples=[
-      0.8, 1.4], T_dopV=0.95, Tpi_samples=[8, 12], T_dopp=14))
+pp(compute_all(Q=6, N=1200, Tv_samples=[
+    0.8, 1.4], T_dopV=0.95, Tpi_samples=[8, 12], T_dopp=14, P_baz=0.94))
