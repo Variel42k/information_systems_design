@@ -409,3 +409,42 @@ FindBugs может выдать предупреждение: «Зачем пр
 ✅ Можно либо:
 •	убрать @Nonnull, либо
 •	оставить комментарий (что уже сделано) — FindBugs тогда не будет считать это ошибкой, а только предупреждением.
+
+Задание 3. Библиотека colt
+
+Bug 1 — EQ_CLASS_NEQ_HASHCODE
+
+Class: cern.colt.matrix.DoubleMatrix2D
+Category: CORRECTNESS
+Pattern: EQ_CLASS_NEQ_HASHCODE
+Description:
+Класс переопределяет метод equals(Object) без соответствующего переопределения hashCode().
+Это нарушает контракт между equals() и hashCode(): объекты, которые равны по equals, должны иметь одинаковые hashCode.
+При использовании таких объектов в HashMap или HashSet возможны логические ошибки (невозможность найти элемент, дублирование и т.д.).
+
+Recommendation (Fix):
+Добавить реализацию hashCode(), согласованную с equals(). Например:
+
+@Override
+public int hashCode() {
+    int h = 1;
+    for (int i = 0; i < rows(); i++)
+        for (int j = 0; j < columns(); j++)
+            h = 31 * h + Double.hashCode(getQuick(i, j));
+    return h;
+}
+
+Bug 2 — IS2_INCONSISTENT_SYNC
+
+Class: cern.colt.matrix.impl.DenseDoubleMatrix2D
+Category: MT_CORRECTNESS
+Pattern: IS2_INCONSISTENT_SYNC
+Description:
+Некоторые поля (elements, rows, columns) изменяются без синхронизации, при этом методы класса используются из разных потоков.
+Это создаёт гонки данных и может приводить к неконсистентным состояниям матриц при параллельных операциях.
+
+Recommendation (Fix):
+
+Либо документировать, что класс не является потокобезопасным (и синхронизацию должен обеспечивать вызывающий код).
+
+Либо синхронизировать доступ к полям или использовать java.util.concurrent механизмы (например, ReentrantLock).
