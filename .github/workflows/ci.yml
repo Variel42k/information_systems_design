@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.11]
+        python-version: [3.12]
 
     steps:
       - uses: actions/checkout@v4
@@ -28,4 +28,5 @@ jobs:
 
       - name: Run tests
         run: |
+          export PYTHONPATH=$PYTHONPATH:$(pwd)
           pytest -q -s | tee holsted_lab3.log
