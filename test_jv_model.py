@@ -1,6 +1,6 @@
 #test jelinski_moranda.py
 import pytest
-from jelinski_moranda.py import compute
+from jelinski_moranda import compute
 
 variants = {
     1: [9,12,11,4,7,2,5,8,5,7,1,6,1,9,4,1,3,3,6,1,1,11,33,7,91,2],
