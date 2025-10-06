@@ -1,4 +1,4 @@
-#test jelinski_moranda.py
+# test_jm_model.py
 import pytest
 from jelinski_moranda import compute
 
@@ -10,10 +10,24 @@ variants = {
     5: [4,13,10,5,8,1,6,7,4,9,5,2,3,8,6,3,2,3,94,5,12,8,28,3],
 }
 
+def print_header():
+    print("\n### Jelinski–Moranda model results\n")
+    print("| Variant | n |  B̂ (total errors) |  K̂ (rate) |  Xₙ₊₁ (next err, h) |  T_finish (h) | Iter | Converged |")
+    print("|:--------:|--:|------------------:|-----------:|--------------------:|---------------:|------:|-----------:|")
+
 @pytest.mark.parametrize("v,X", variants.items())
 def test_all_variants(v, X):
     res = compute(X)
-    assert res["converged"], f"Variant {v}: не сошлось"
-    assert res["B_hat"] > len(X), f"Variant {v}: B_hat должно быть > n"
-    assert res["K_hat"] > 0, f"Variant {v}: K_hat должно быть положительным"
-    print(f"✅ Variant {v}: B̂={res['B_hat']:.4f}, K̂={res['K_hat']:.6e}, X_next={res['X_next']:.3f}")
+    assert res["converged"], f"❌ Variant {v}: метод Ньютона не сошёлся"
+    assert res["B_hat"] > len(X), f"❌ Variant {v}: B_hat ≤ n"
+    assert res["K_hat"] > 0, f"❌ Variant {v}: K_hat отрицательный"
+
+    # печать аккуратной строки таблицы
+    print(f"| {v} | {res['n']} | {res['B_hat']:.4f} | {res['K_hat']:.6e} | "
+          f"{res['X_next']:.4f} | {res['time_to_finish']:.4f} | "
+          f"{res['iterations']} | {res['converged']} |")
+
+@pytest.fixture(scope="session", autouse=True)
+def banner():
+    """Вывод заголовка таблицы перед тестами"""
+    print_header()
