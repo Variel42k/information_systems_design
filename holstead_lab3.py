@@ -132,10 +132,17 @@ def compute_rating_and_expected_errors(data: VariantData, coef_variant: int, R_p
     # Защита: если c_prev == 0, это даст деление на 0
     if c_prev == 0:
         raise ZeroDivisionError("Коэффициент c_prev равен 0, деление невозможно")
+
     sum_B_over_c = sum(Bk / c_prev for Bk in data.errors_list)
     R_new = R_prev * (1.0 + 1e-3 * (sum_V - sum_B_over_c))
+
+    # 🔹 Защита от отрицательного или нулевого значения R_new
+    if R_new <= 0:
+        R_new = max(abs(R_new), 1e-6)
+
     c_new = c_coef(coef_variant, data.lambda_lang, R_new)
     B_expected_next = c_new * data.planned_kb
+
     return R_new, B_expected_next
 
 
