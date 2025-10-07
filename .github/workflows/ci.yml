@@ -27,10 +27,10 @@ jobs:
           pip install pytest tabulate
 
       # --- Проверка, что основной скрипт запускается и печатает таблицу ---
-      - name: Run main script (holsted_lab3.py)
+      - name: Run main script (holstead_lab3.py)
         run: |
-          echo "Запуск holsted_lab3.py (вариант 2)..."
-          python holsted_lab3.py -v 2 -m 3 -n 20 -w 8 | tee holsted_output.txt
+          echo "Запуск holstead_lab3.py (вариант 2)"
+          python holstead_lab3.py -v 2 -m 3 -n 20 -w 8 | tee holsted_output.txt
 
       # --- Отображение результатов таблицей ---
       - name: Show summary table
