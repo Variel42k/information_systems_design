@@ -312,6 +312,8 @@ System.out.println("str#2");
 
 - Поведение тернарного оператора и вывод общего типа описаны в JLS §15.25. Именно оно приводит к распаковке и приведению типов ещё до присваивания.
 
+## Задание 2
+
 ### 1️⃣ Класс Book
 public class Book {
     private @Nonnull String author;
@@ -410,9 +412,9 @@ FindBugs может выдать предупреждение: «Зачем пр
 •	убрать @Nonnull, либо
 •	оставить комментарий (что уже сделано) — FindBugs тогда не будет считать это ошибкой, а только предупреждением.
 
-Задание 3. Библиотека colt
+## Задание 3. Библиотека colt
 
-Bug 1 — EQ_CLASS_NEQ_HASHCODE
+### Bug 1 — EQ_CLASS_NEQ_HASHCODE
 
 Class: cern.colt.matrix.DoubleMatrix2D
 Category: CORRECTNESS
@@ -434,7 +436,7 @@ public int hashCode() {
     return h;
 }
 
-Bug 2 — IS2_INCONSISTENT_SYNC
+### Bug 2 — IS2_INCONSISTENT_SYNC
 
 Class: cern.colt.matrix.impl.DenseDoubleMatrix2D
 Category: MT_CORRECTNESS
@@ -448,3 +450,115 @@ Recommendation (Fix):
 Либо документировать, что класс не является потокобезопасным (и синхронизацию должен обеспечивать вызывающий код).
 
 Либо синхронизировать доступ к полям или использовать java.util.concurrent механизмы (например, ReentrantLock).
+
+### Bug 3 — EI_EXPOSE_REP
+
+Class: cern.colt.matrix.impl.DenseDoubleMatrix2D
+Category: BAD_PRACTICE
+Pattern: EI_EXPOSE_REP
+Description:
+Метод public double[] elements() возвращает ссылку на внутренний массив elements.
+Изменение этого массива снаружи напрямую изменяет внутреннее состояние матрицы, нарушая инкапсуляцию.
+
+Recommendation (Fix):
+Вернуть копию массива, либо сделать метод protected/package-private:
+
+public double[] elements() {
+    return elements.clone(); // безопасно
+}
+
+
+или документировать, что метод возвращает «unsafe view» (для оптимизации).
+
+### Bug 4 — NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR
+
+Class: cern.colt.matrix.impl.SparseDoubleMatrix2D
+Category: CORRECTNESS
+Pattern: NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR
+Description:
+Поле elements (или аналогичное) объявлено как @NonNull, но не инициализируется во всех конструкторах.
+FindBugs предполагает, что оно всегда должно быть не-null, но при некоторых ветвях конструкторов остаётся неинициализированным → возможен NullPointerException при обращении.
+
+Recommendation (Fix):
+Убедиться, что поле инициализируется во всех конструкторах:
+
+public SparseDoubleMatrix2D(int rows, int columns) {
+    this.elements = new HashMap<>();
+    ...
+}
+
+### Bug 5 — CN_IDIOM
+
+Class: cern.colt.matrix.impl.DenseDoubleMatrix2D
+Category: CORRECTNESS
+Pattern: CN_IDIOM
+Description:
+Класс реализует интерфейс Cloneable, но не переопределяет метод clone().
+Вызов super.clone() создаст поверхностную копию — внутренний массив elements будет разделяться между клонами, что приведёт к неожиданным изменениям данных.
+
+Recommendation (Fix):
+Переопределить clone() для глубокого копирования массива:
+
+@Override
+public DenseDoubleMatrix2D clone() {
+    DenseDoubleMatrix2D copy = (DenseDoubleMatrix2D) super.clone();
+    copy.elements = this.elements.clone();
+    return copy;
+}
+
+### Bug 6 — NP_NULL_PARAM_DEREF
+
+Class: cern.colt.matrix.impl.DoubleMatrix2D
+Category: CORRECTNESS
+Pattern: NP_NULL_PARAM_DEREF
+Description:
+Методы assign(...) и zMult(...) вызывают методы с параметрами, которые могут быть null, без предварительной проверки.
+При передаче null в качестве входной матрицы произойдёт NullPointerException.
+
+Recommendation (Fix):
+Добавить проверку:
+
+if (other == null) throw new IllegalArgumentException("Matrix must not be null");
+
+### Bug 7 — SE_NO_SUITABLE_CONSTRUCTOR
+
+Class: cern.colt.matrix.impl.DenseDoubleMatrix2D
+Category: SERIALIZATION
+Pattern: SE_NO_SUITABLE_CONSTRUCTOR
+Description:
+Класс implements Serializable, но не имеет конструктора без аргументов и не переопределяет readObject() / writeObject().
+Это может вызвать исключение при десериализации, если внутренние поля требуют специальной инициализации.
+
+Recommendation (Fix):
+Добавить конструктор без параметров или явно реализовать методы сериализации:
+
+private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+    in.defaultReadObject();
+    // восстановить элементы, если нужно
+}
+
+### Bug 8 — IM_BAD_CHECK_FOR_ODD (производная от деления на ноль)
+
+Class: cern.colt.matrix.impl.Algebra
+Category: CORRECTNESS
+Pattern: IM_BAD_CHECK_FOR_ODD
+Description:
+В некоторых методах деление выполняется без проверки делителя (1.0 / norm или 1.0 / x).
+Если аргумент равен нулю, будет Infinity или NaN, что может повлиять на результат последующих вычислений.
+
+Recommendation (Fix):
+Проверять делитель:
+
+if (norm == 0) throw new ArithmeticException("Division by zero");
+
+✅ Сводная таблица
+| Bug Code                                        | Class Example          | Severity | Description                              |
+| ----------------------------------------------- | ---------------------- | -------- | ---------------------------------------- |
+| EQ_CLASS_NEQ_HASHCODE                           | `DoubleMatrix2D`       | High     | equals() without hashCode()              |
+| IS2_INCONSISTENT_SYNC                           | `DenseDoubleMatrix2D`  | High     | Unsynchronized mutable state             |
+| EI_EXPOSE_REP                                   | `DenseDoubleMatrix2D`  | High     | Exposed internal representation          |
+| NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR | `SparseDoubleMatrix2D` | High     | Non-null field not initialized           |
+| CN_IDIOM                                        | `DenseDoubleMatrix2D`  | Medium   | Cloneable without clone()                |
+| NP_NULL_PARAM_DEREF                             | `DoubleMatrix2D`       | Medium   | Dereferencing possible null              |
+| SE_NO_SUITABLE_CONSTRUCTOR                      | `DenseDoubleMatrix2D`  | Medium   | Serializable without default constructor |
+| IM_BAD_CHECK_FOR_ODD                            | `Algebra`              | Low      | Division by zero risk                    |
