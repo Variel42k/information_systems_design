@@ -2,12 +2,14 @@
 # -*- coding: utf-8 -*-
 """
 Расчёт метрик Холстеда
+(обновлённая версия с небольшими проверками и подготовкой к CI)
 """
 
 import math
 import argparse
 from dataclasses import dataclass
 from typing import List, Tuple, Dict
+
 
 # =============================
 # Исходные данные
@@ -25,7 +27,8 @@ class VariantData:
     errors_list: List[int]
     planned_kb: int
 
-# Таблицы исходных данных
+
+# Таблицы исходных данных (вариант 2 как в ТЗ)
 TABLE: Dict[int, VariantData] = {
     2: VariantData(
         targets=25,
@@ -41,6 +44,7 @@ TABLE: Dict[int, VariantData] = {
     )
 }
 
+
 # =============================
 # Утилиты и формулы
 # =============================
@@ -51,26 +55,39 @@ def log2(x: float) -> float:
         raise ValueError("log2: вход должен быть > 0")
     return math.log(x, 2)
 
+
 def compute_n2_star(data: VariantData) -> int:
     """Считает минимальное число операндов (n2*)."""
     return data.targets * (data.tracked_params + data.calculated_params)
 
+
 def halstead_potential_volume(n2_star: int) -> float:
     """Потенциальный объём по Холстеду: V* = (2 + n2*) * log2(2 + n2*)."""
     return (2 + n2_star) * log2(2 + n2_star)
+
 
 def modules_count(n2_star: int) -> Tuple[float, int]:
     """Число модулей: k_raw (дробное), k (округлённое вверх)."""
     k_raw = n2_star / 8.0
     return k_raw, math.ceil(k_raw)
 
+
 def program_length(K: int, Nk: float = 220.0) -> float:
-    """Длина программы N = K * (Nk + 20*log2(K))."""
+    """
+    Длина программы N = K * (Nk + 20 * log2(K))
+    (в методичке иногда используются множители типа 20 в логарифме)
+    """
+    if K <= 0:
+        raise ValueError("K должно быть > 0 для расчёта длины программы")
     return K * (Nk + 20.0 * log2(K))
 
+
 def asm_commands(N: float) -> float:
-    """Количество команд ассемблера по методичке: P = 3/8 * N."""
+    """Количество команд ассемблера: P = 3/8 * N."""
+    if N < 0:
+        raise ValueError("N должно быть >= 0")
     return (3.0 / 8.0) * N
+
 
 def calendar_time_days(P_asm: float, nu: int, m: int) -> float:
     """Календарное время разработки (дни): T_k = P / (ν * m)."""
@@ -78,16 +95,23 @@ def calendar_time_days(P_asm: float, nu: int, m: int) -> float:
         raise ValueError("nu и m должны быть > 0")
     return P_asm / (nu * m)
 
+
 def potential_errors_task1(V_star: float, lambda_lang: float) -> float:
     """Задание 1(в): B = (V*)^2 / (3000 · λ)."""
+    if lambda_lang <= 0:
+        raise ValueError("lambda_lang должна быть > 0")
     return (V_star * V_star) / (3000.0 * lambda_lang)
+
 
 def potential_errors_task2(V: float) -> float:
     """Задание 2(е): B = V / 3000."""
     return V / 3000.0
 
+
 def c_coef(variant: int, lambd: float, R: float) -> float:
     """Коэффициент c(λ, R) для Задания 3 (три варианта)."""
+    if lambd <= 0 or R <= 0:
+        raise ValueError("lambda и R должны быть > 0 для расчёта c")
     if variant == 1:
         return 1.0 / (lambd + R)
     if variant == 2:
@@ -95,6 +119,7 @@ def c_coef(variant: int, lambd: float, R: float) -> float:
     if variant == 3:
         return (1.0 / lambd) + (1.0 / R)
     raise ValueError("Неизвестный вариант коэффициента c")
+
 
 def compute_rating_and_expected_errors(data: VariantData, coef_variant: int, R_prev: float) -> Tuple[float, float]:
     """
@@ -104,16 +129,32 @@ def compute_rating_and_expected_errors(data: VariantData, coef_variant: int, R_p
     """
     c_prev = c_coef(coef_variant, data.lambda_lang, R_prev)
     sum_V = sum(data.volumes_kb)
+    # Защита: если c_prev == 0, это даст деление на 0
+    if c_prev == 0:
+        raise ZeroDivisionError("Коэффициент c_prev равен 0, деление невозможно")
+
     sum_B_over_c = sum(Bk / c_prev for Bk in data.errors_list)
     R_new = R_prev * (1.0 + 1e-3 * (sum_V - sum_B_over_c))
-    B_expected_next = c_coef(coef_variant, data.lambda_lang, R_new) * data.planned_kb
+
+    # 🔹 Защита от отрицательного или нулевого значения R_new
+    if R_new <= 0:
+        R_new = max(abs(R_new), 1e-6)
+
+    c_new = c_coef(coef_variant, data.lambda_lang, R_new)
+    B_expected_next = c_new * data.planned_kb
+
     return R_new, B_expected_next
+
 
 # =============================
 # Основная функция
 # =============================
 
 def run_all_for_variant(data: VariantData, m: int, nu: int, work_day_hours: int) -> Dict:
+    """
+    Выполняет все расчёты для данного варианта и возвращает словарь результатов.
+    """
+    # Валидация входных данных
     if data.targets <= 0 or data.tracked_params < 0 or data.calculated_params < 0:
         raise ValueError("Некорректные входные данные по параметрам цели/операндов")
     if work_day_hours <= 0:
@@ -183,6 +224,7 @@ def run_all_for_variant(data: VariantData, m: int, nu: int, work_day_hours: int)
 
     return results
 
+
 # =============================
 # CLI
 # =============================
@@ -206,7 +248,8 @@ def main():
     # Задание 2
     print("\n=== ПАРАМЕТРЫ ПО — Задание 2 ===")
     print(f"k_raw = {results['k_raw']:.6f}, k_simple = {results['k_simple']}, K_used = {results['K_used']}")
-    print(f"N = 220·K + K·log2(K) = {results['N']:.6f}")
+    # Исправленная формула вывода для N (соответствует реализации program_length)
+    print(f"N = K * (220 + 20*log2(K)) = {results['N']:.6f}")
     print(f"V ≈ K·220·log2(48) = {results['V']:.6f}")
     print(f"P (команд ассемблера) = 3·N/8 = {results['P_asm']:.6f}")
     print(f"T_k (дни) = P/(ν·m) = {results['Tk_days']:.6f}")
@@ -218,6 +261,7 @@ def main():
     print("\n=== РЕЙТИНГ И ОЖИДАЕМЫЕ ОШИБКИ — Задание 3 ===")
     for variant, vals in results["ratings"].items():
         print(f"  Коэффициент вариант {variant}: R_new = {vals['R_new']:.6f}, B_expected_next = {vals['B_expected_next']:.6f}")
+
 
 if __name__ == "__main__":
     main()

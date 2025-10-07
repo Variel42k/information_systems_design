@@ -1,0 +1,61 @@
+name: CI – Halstead metrics check
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: [3.11]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pytest tabulate
+
+      # --- Проверка, что основной скрипт запускается и печатает таблицу ---
+      - name: Run main script (holstead_lab3.py)
+        run: |
+          echo "Запуск holstead_lab3.py (вариант 2)"
+          python holstead_lab3.py -v 2 -m 3 -n 20 -w 8 | tee holsted_output.txt
+
+      # --- Отображение результатов таблицей ---
+      - name: Show summary table
+        run: |
+          echo ""
+          echo "=== РЕЗУЛЬТАТ РАСЧЁТА ПО МЕТРИКАМ ХОЛСТЕДА ==="
+          python - <<'EOF'
+          from tabulate import tabulate
+          import re
+
+          # читаем вывод из файла
+          with open("holsted_output.txt", "r", encoding="utf-8") as f:
+              text = f.read()
+
+          # находим строки с видами "ключ = значение"
+          pairs = re.findall(r"([A-Za-zА-Яа-я0-9_*().]+)\s*=\s*([-0-9.einf]+)", text)
+          headers = ["Параметр", "Значение"]
+          table = tabulate(pairs, headers=headers, tablefmt="github", floatfmt=".6f")
+
+          print(table)
+          EOF
+
+      # --- (Необязательно) сохраняем результаты как артефакт ---
+      - name: Upload calculation log
+        uses: actions/upload-artifact@v4
+        with:
+          name: holsted_output
+          path: holsted_output.txt
