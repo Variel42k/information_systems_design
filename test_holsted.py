@@ -1,5 +1,5 @@
 import math
-from holsted_lab3 import TABLE, run_all_for_variant
+from holstead_lab3 import TABLE, run_all_for_variant
 
 def test_run_variant_basic_properties():
     data = TABLE[2]
