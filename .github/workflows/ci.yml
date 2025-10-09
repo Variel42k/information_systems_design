@@ -57,7 +57,7 @@ jobs:
       - name: Create build artifact
         run: |
           mkdir -p build
-          cp -r holstead_lab3.py test_hol sted.py holsted_output.txt build/
+          cp -r holstead_lab3.py test_holsted.py holsted_output.txt build/
           tar -czf build-artifact.tar.gz build
 
       - name: Upload artifact to GitHub
