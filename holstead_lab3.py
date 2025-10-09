@@ -101,10 +101,13 @@ def compute_rating_and_expected_errors(data: VariantData, coef_variant: int, R_p
     Задание 3:
     R_i = R_{i-1} * [1 + 1e-3 * (Σ V_j − Σ B_k / c(λ, R_{i-1}))],
     B_{n+1} = c(λ, R_i) * V_{n+1}, где V_{n+1} = planned_kb.
+    ВАЖНО: Bk - потенциальные ошибки, вычисляемые как Vk/3000
     """
     c_prev = c_coef(coef_variant, data.lambda_lang, R_prev)
     sum_V = sum(data.volumes_kb)
-    sum_B_over_c = sum(Bk / c_prev for Bk in data.errors_list)
+    # Вычисляем потенциальные ошибки для каждой программы: Bk = Vk/3000
+    potential_errors = [Vk / 3000.0 for Vk in data.volumes_kb]
+    sum_B_over_c = sum(Bk / c_prev for Bk in potential_errors)
     R_new = R_prev * (1.0 + 1e-3 * (sum_V - sum_B_over_c))
     B_expected_next = c_coef(coef_variant, data.lambda_lang, R_new) * data.planned_kb
     return R_new, B_expected_next
@@ -188,37 +191,37 @@ def run_all_for_variant(data: VariantData, m: int, nu: int, work_day_hours: int)
 # =============================
 
 def main():
-    parser = argparse.ArgumentParser(description="Метрики Холстеда (Задания 1–3) по методичке.")
-    parser.add_argument("-v", "--variant", type=int, default=2, choices=list(TABLE.keys()), help="Номер варианта")
-    parser.add_argument("-m", "--programmers", type=int, default=3, help="Число программистов (m)")
-    parser.add_argument("-n", "--nu", type=int, default=20, help="Производительность ν (команд в день)")
-    parser.add_argument("-w", "--work_hours", type=int, default=8, help="Часов в рабочем дне")
+    parser = argparse.ArgumentParser(description="Halstead Metrics (Tasks 1-3) according to the manual.")
+    parser.add_argument("-v", "--variant", type=int, default=2, choices=list(TABLE.keys()), help="Variant number")
+    parser.add_argument("-m", "--programmers", type=int, default=3, help="Number of programmers (m)")
+    parser.add_argument("-n", "--nu", type=int, default=20, help="Productivity nu (commands per day)")
+    parser.add_argument("-w", "--work_hours", type=int, default=8, help="Hours in a working day")
     args = parser.parse_args()
 
     data = TABLE[args.variant]
     results = run_all_for_variant(data, args.programmers, args.nu, args.work_hours)
 
-    # Задание 1
-    print("=== МЕТРИКИ ХОЛСТЕДА — Задание 1 ===")
-    print(f"V* = (2 + n2*) · log2(2 + n2*) = {results['V_star']:.6f}")
-    print(f"B1 = (V*)^2 / (3000·λ) = {results['B1_from_Vstar_lambda']:.6f}")
+    # Task 1
+    print("=== HALSTEAD METRICS - Task 1 ===")
+    print(f"V* = (2 + n2*) * log2(2 + n2*) = {results['V_star']:.6f}")
+    print(f"B1 = (V*)^2 / (3000*lambda) = {results['B1_from_Vstar_lambda']:.6f}")
 
-    # Задание 2
-    print("\n=== ПАРАМЕТРЫ ПО — Задание 2 ===")
+    # Task 2
+    print("\n=== SOFTWARE PARAMETERS - Task 2 ===")
     print(f"n2* = {results['n2_star']}")
     print(f"k_raw = {results['k_raw']:.6f}, k_simple = {results['k_simple']}, K_used = {results['K_used']}")
-    print(f"N = 220·K + K·log2(K) = {results['N']:.6f}")
-    print(f"V ≈ K·220·log2(48) = {results['V']:.6f}")
-    print(f"P (команд ассемблера) = 3·N/8 = {results['P_asm']:.6f}")
-    print(f"T_k (дни) = 3·N/(8·m·ν) = {results['Tk_days']:.6f}")
-    print(f"T_k (часы) = {results['Tk_hours']:.6f}")
+    print(f"N = 220*K + K*log2(K) = {results['N']:.6f}")
+    print(f"V ~ K*220*log2(48) = {results['V']:.6f}")
+    print(f"P (assembler commands) = 3*N/8 = {results['P_asm']:.6f}")
+    print(f"T_k (days) = 3*N/(8*m*nu) = {results['Tk_days']:.6f}")
+    print(f"T_k (hours) = {results['Tk_hours']:.6f}")
     print(f"B2 = V/3000 = {results['B2_from_V']:.6f}")
-    print(f"t_k = T_k/(2·ln B2) (в часах) = {results['t_k']:.6f}")
+    print(f"t_k = T_k/(2*ln B2) (in hours) = {results['t_k']:.6f}")
 
-    # Задание 3
-    print("\n=== РЕЙТИНГ И ОЖИДАЕМЫЕ ОШИБКИ — Задание 3 ===")
+    # Task 3
+    print("\n=== RATING AND EXPECTED ERRORS - Task 3 ===")
     for variant, vals in results["ratings"].items():
-        print(f"  Коэффициент вариант {variant}: R_new = {vals['R_new']:.6f}, B_expected_next = {vals['B_expected_next']:.6f}")
+        print(f"  Coefficient variant {variant}: R_new = {vals['R_new']:.6f}, B_expected_next = {vals['B_expected_next']:.6f}")
 
 if __name__ == "__main__":
     main()
