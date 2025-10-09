@@ -30,7 +30,7 @@ jobs:
       - name: Create build artifact
         run: |
           mkdir -p build
-          cp -r jelinski_moranda.py test_jm_model.py pytest_jelinski_moranda.log build/
+          cp -r jelinski_moranda.py test_jv_model.py pytest_jelinski_moranda.log build/
           tar -czf build-artifact.tar.gz build
 
       - name: Upload artifact to GitHub
