@@ -30,7 +30,7 @@ jobs:
       - name: Create build artifact
         run: |
           mkdir -p build
-          cp -r lab_5.py test_lab5_reliability.py lab5.log build/
+          cp -r lab_5.py test_lab5_reliability.py lab_5.log build/
           tar -czf build-artifact.tar.gz build
 
       - name: Upload artifact to GitHub
