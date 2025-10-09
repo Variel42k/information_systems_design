@@ -53,6 +53,19 @@ jobs:
           print(table)
           EOF
 
+      # Сборка артефакта проекта
+      - name: Create build artifact
+        run: |
+          mkdir -p build
+          cp -r jelinski_moranda.py test_hosted.py pytest_holsted.log build/
+          tar -czf build-artifact.tar.gz build
+
+      - name: Upload artifact to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: jelinski-moranda-build
+          path: build-artifact.tar.gz
+
       # --- (Необязательно) сохраняем результаты как артефакт ---
       - name: Upload calculation log
         uses: actions/upload-artifact@v4
