@@ -8,6 +8,7 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -24,3 +25,16 @@ jobs:
 
       - name: Run tests
         run: pytest -v -s | tee pytest_jelinski_moranda.log
+
+      # Сборка артефакта проекта
+      - name: Create build artifact
+        run: |
+          mkdir -p build
+          cp -r jelinski_moranda.py test_jm_model.py pytest_jelinski_moranda.log build/
+          tar -czf build-artifact.tar.gz build
+
+      - name: Upload artifact to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: jelinski-moranda-build
+          path: build-artifact.tar.gz
