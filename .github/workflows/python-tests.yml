@@ -25,3 +25,16 @@ jobs:
       - name: Run tests
         run: |
           pytest -v -s | tee lab_5.log
+
+        # Сборка артефакта проекта
+      - name: Create build artifact
+        run: |
+          mkdir -p build
+          cp -r lab_5.py test_lab5_reliability.py lab5.log build/
+          tar -czf build-artifact.tar.gz build
+
+      - name: Upload artifact to GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: jelinski-moranda-build
+          path: build-artifact.tar.gz
