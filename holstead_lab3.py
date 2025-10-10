@@ -53,7 +53,7 @@ def log2(x: float) -> float:
 
 def compute_n2_star(data: VariantData) -> int:
     """Считает минимальное число операндов (n2*)."""
-    return data.targets * data.calculated_params
+    return data.targets * data.tracked_params * data.calculated_params
 
 def halstead_potential_volume(n2_star: int) -> float:
     """Потенциальный объём по Холстеду: V* = (2 + n2*) * log2(2 + n2*)."""
