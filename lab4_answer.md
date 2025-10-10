@@ -311,3 +311,268 @@ System.out.println("str#2");
 ## Примечания по спецификации языка
 
 - Поведение тернарного оператора и вывод общего типа описаны в JLS §15.25. Именно оно приводит к распаковке и приведению типов ещё до присваивания.
+
+## Задание 2
+
+### 1️⃣ Класс Book
+public class Book {
+    private @Nonnull String author;
+    private @Nonnull String title;
+    private @CheckForNull String subtitle;
+
+    public @Nonnull String getAuthor() { return author; }
+    public @Nonnull String getSubtitle() { return subtitle; }
+    public @Nonnull String getTitle() { return title; }
+}
+⚠️ FindBugs предупреждения:
+(1) NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR
+Поля author и title помечены как @Nonnull, но не инициализированы ни в конструкторе, ни при объявлении.
+📖 Объяснение:
+FindBugs понимает, что @Nonnull означает «никогда не должно быть null».
+Так как в классе нет конструктора, и поля не получают значения при объявлении, это означает, что после создания new Book(), author и title будут null.
+Это противоречит контракту @Nonnull.
+✅ Исправление:
+Добавить конструктор и инициализацию:
+public Book(@Nonnull String author, @Nonnull String title, @CheckForNull String subtitle) {
+    this.author = author;
+    this.title = title;
+    this.subtitle = subtitle;
+}
+________________________________________
+(2) NP_METHOD_RETURN_RELAXING_ANNOTATION
+Метод getSubtitle() объявлен как @Nonnull, но возвращает поле @CheckForNull subtitle.
+📖 Объяснение:
+subtitle может быть null, но getSubtitle() заявляет, что возвращает @Nonnull.
+Это явное нарушение null-контракта.
+✅ Исправление:
+public @CheckForNull String getSubtitle() {
+    return subtitle;
+}
+________________________________________
+### 2️⃣ Класс Library
+public class Library {
+    private final Set<Book> books = new TreeSet<Book>(new ComparatorImpl());
+    
+    public void addBook(@Nonnull Book newBook) {
+        if (newBook == null) return;
+        books.add(newBook);
+    }
+
+    public @Nonnull Iterable<? extends String> describeBooksBy(@Nonnull String author) {
+        List<String> result = new ArrayList<String>();
+        for (Book b : books) {
+            if (!author.equals(b.getAuthor())) continue;
+            result.add(String.format("%s: %d", b.getAuthor(), b.getTitle()));
+        }
+        return result;
+    }
+
+    private static class ComparatorImpl implements Comparator<Book>, Serializable {
+        @Override public int compare(Book o1, Book o2) {
+            int r = o1.getAuthor().compareTo(o2.getAuthor());
+            if (r != 0) return r;
+            r = o1.getTitle().compareTo(o2.getTitle());
+            if (r != 0) return r;
+            r = o1.getSubtitle().compareTo(o2.getSubtitle());
+            return 0;
+        }
+        private static final long serialVersionUID = 0L;
+    }
+}
+________________________________________
+⚠️ FindBugs предупреждения:
+(3) NP_NULL_PARAM_DEREF_NONVIRTUAL
+В методе ComparatorImpl.compare() вызывается o1.getSubtitle().compareTo(o2.getSubtitle()), хотя getSubtitle() может вернуть null.
+📖 Объяснение:
+Book.getSubtitle() возвращает @CheckForNull String, поэтому compareTo() может вызвать NullPointerException.
+FindBugs отметит это как потенциальное разыменование null.
+✅ Исправление:
+String s1 = o1.getSubtitle();
+String s2 = o2.getSubtitle();
+if (s1 == null && s2 == null) return 0;
+if (s1 == null) return -1;
+if (s2 == null) return 1;
+return s1.compareTo(s2);
+________________________________________
+(4) FORMAT_STRING_INVALID
+В строке String.format("%s: %d", b.getAuthor(), b.getTitle());
+используется формат %d, но b.getTitle() возвращает String, а не число.
+📖 Объяснение:
+%d ожидает int, Integer, long и т.д.
+Передаётся String, что вызовет IllegalFormatConversionException во время выполнения.
+✅ Исправление:
+result.add(String.format("%s: %s", b.getAuthor(), b.getTitle()));
+________________________________________
+(5) NP_PARAMETER_MUST_BE_NONNULL_BUT_MARKED_AS_NULLABLE (возможное предупреждение)
+В методе addBook(@Nonnull Book newBook) проверяется if (newBook == null).
+FindBugs может выдать предупреждение: «Зачем проверять null у параметра, который аннотирован @Nonnull?»
+📖 Объяснение:
+Технически — проверка допустима, если проект хочет быть совместим с клиентами без аннотаций, но FindBugs считает это “redundant null check”.
+✅ Можно либо:
+•	убрать @Nonnull, либо
+•	оставить комментарий (что уже сделано) — FindBugs тогда не будет считать это ошибкой, а только предупреждением.
+
+## Задание 3. Библиотека colt
+
+### Bug 1 — EQ_CLASS_NEQ_HASHCODE
+
+Class: cern.colt.matrix.DoubleMatrix2D
+Category: CORRECTNESS
+Pattern: EQ_CLASS_NEQ_HASHCODE
+Description:
+Класс переопределяет метод equals(Object) без соответствующего переопределения hashCode().
+Это нарушает контракт между equals() и hashCode(): объекты, которые равны по equals, должны иметь одинаковые hashCode.
+При использовании таких объектов в HashMap или HashSet возможны логические ошибки (невозможность найти элемент, дублирование и т.д.).
+
+Recommendation (Fix):
+Добавить реализацию hashCode(), согласованную с equals(). Например:
+
+```
+@Override
+public int hashCode() {
+    int h = 1;
+    for (int i = 0; i < rows(); i++)
+        for (int j = 0; j < columns(); j++)
+            h = 31 * h + Double.hashCode(getQuick(i, j));
+    return h;
+}
+```
+
+### Bug 2 — IS2_INCONSISTENT_SYNC
+
+Class: cern.colt.matrix.impl.DenseDoubleMatrix2D
+Category: MT_CORRECTNESS
+Pattern: IS2_INCONSISTENT_SYNC
+Description:
+Некоторые поля (elements, rows, columns) изменяются без синхронизации, при этом методы класса используются из разных потоков.
+Это создаёт гонки данных и может приводить к неконсистентным состояниям матриц при параллельных операциях.
+
+Recommendation (Fix):
+
+Либо документировать, что класс не является потокобезопасным (и синхронизацию должен обеспечивать вызывающий код).
+
+Либо синхронизировать доступ к полям или использовать java.util.concurrent механизмы (например, ReentrantLock).
+
+### Bug 3 — EI_EXPOSE_REP
+
+Class: cern.colt.matrix.impl.DenseDoubleMatrix2D
+Category: BAD_PRACTICE
+Pattern: EI_EXPOSE_REP
+Description:
+Метод public double[] elements() возвращает ссылку на внутренний массив elements.
+Изменение этого массива снаружи напрямую изменяет внутреннее состояние матрицы, нарушая инкапсуляцию.
+
+Recommendation (Fix):
+Вернуть копию массива, либо сделать метод protected/package-private:
+
+```
+public double[] elements() {
+    return elements.clone(); // безопасно
+}
+```
+
+
+или документировать, что метод возвращает «unsafe view» (для оптимизации).
+
+### Bug 4 — NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR
+
+Class: cern.colt.matrix.impl.SparseDoubleMatrix2D
+Category: CORRECTNESS
+Pattern: NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR
+Description:
+Поле elements (или аналогичное) объявлено как @NonNull, но не инициализируется во всех конструкторах.
+FindBugs предполагает, что оно всегда должно быть не-null, но при некоторых ветвях конструкторов остаётся неинициализированным → возможен NullPointerException при обращении.
+
+Recommendation (Fix):
+Убедиться, что поле инициализируется во всех конструкторах:
+
+```
+public SparseDoubleMatrix2D(int rows, int columns) {
+    this.elements = new HashMap<>();
+    ...
+}
+```
+
+### Bug 5 — CN_IDIOM
+
+Class: cern.colt.matrix.impl.DenseDoubleMatrix2D
+Category: CORRECTNESS
+Pattern: CN_IDIOM
+Description:
+Класс реализует интерфейс Cloneable, но не переопределяет метод clone().
+Вызов super.clone() создаст поверхностную копию — внутренний массив elements будет разделяться между клонами, что приведёт к неожиданным изменениям данных.
+
+Recommendation (Fix):
+Переопределить clone() для глубокого копирования массива:
+
+```
+@Override
+public DenseDoubleMatrix2D clone() {
+    DenseDoubleMatrix2D copy = (DenseDoubleMatrix2D) super.clone();
+    copy.elements = this.elements.clone();
+    return copy;
+}
+```
+
+### Bug 6 — NP_NULL_PARAM_DEREF
+
+Class: cern.colt.matrix.impl.DoubleMatrix2D
+Category: CORRECTNESS
+Pattern: NP_NULL_PARAM_DEREF
+Description:
+Методы assign(...) и zMult(...) вызывают методы с параметрами, которые могут быть null, без предварительной проверки.
+При передаче null в качестве входной матрицы произойдёт NullPointerException.
+
+Recommendation (Fix):
+Добавить проверку:
+
+```
+if (other == null) throw new IllegalArgumentException("Matrix must not be null");
+```
+
+### Bug 7 — SE_NO_SUITABLE_CONSTRUCTOR
+
+Class: cern.colt.matrix.impl.DenseDoubleMatrix2D
+Category: SERIALIZATION
+Pattern: SE_NO_SUITABLE_CONSTRUCTOR
+Description:
+Класс implements Serializable, но не имеет конструктора без аргументов и не переопределяет readObject() / writeObject().
+Это может вызвать исключение при десериализации, если внутренние поля требуют специальной инициализации.
+
+Recommendation (Fix):
+Добавить конструктор без параметров или явно реализовать методы сериализации:
+
+```
+private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
+    in.defaultReadObject();
+    // восстановить элементы, если нужно
+}
+```
+
+### Bug 8 — IM_BAD_CHECK_FOR_ODD (производная от деления на ноль)
+
+Class: cern.colt.matrix.impl.Algebra
+Category: CORRECTNESS
+Pattern: IM_BAD_CHECK_FOR_ODD
+Description:
+В некоторых методах деление выполняется без проверки делителя (1.0 / norm или 1.0 / x).
+Если аргумент равен нулю, будет Infinity или NaN, что может повлиять на результат последующих вычислений.
+
+Recommendation (Fix):
+Проверять делитель:
+
+```
+if (norm == 0) throw new ArithmeticException("Division by zero");
+```
+
+✅ Сводная таблица
+| Bug Code                                        | Class Example          | Severity | Description                              |
+| ----------------------------------------------- | ---------------------- | -------- | ---------------------------------------- |
+| EQ_CLASS_NEQ_HASHCODE                           | `DoubleMatrix2D`       | High     | equals() without hashCode()              |
+| IS2_INCONSISTENT_SYNC                           | `DenseDoubleMatrix2D`  | High     | Unsynchronized mutable state             |
+| EI_EXPOSE_REP                                   | `DenseDoubleMatrix2D`  | High     | Exposed internal representation          |
+| NP_NONNULL_FIELD_NOT_INITIALIZED_IN_CONSTRUCTOR | `SparseDoubleMatrix2D` | High     | Non-null field not initialized           |
+| CN_IDIOM                                        | `DenseDoubleMatrix2D`  | Medium   | Cloneable without clone()                |
+| NP_NULL_PARAM_DEREF                             | `DoubleMatrix2D`       | Medium   | Dereferencing possible null              |
+| SE_NO_SUITABLE_CONSTRUCTOR                      | `DenseDoubleMatrix2D`  | Medium   | Serializable without default constructor |
+| IM_BAD_CHECK_FOR_ODD                            | `Algebra`              | Low      | Division by zero risk                    |
