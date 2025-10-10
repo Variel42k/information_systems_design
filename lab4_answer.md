@@ -427,6 +427,7 @@ Description:
 Recommendation (Fix):
 Добавить реализацию hashCode(), согласованную с equals(). Например:
 
+```
 @Override
 public int hashCode() {
     int h = 1;
@@ -435,6 +436,7 @@ public int hashCode() {
             h = 31 * h + Double.hashCode(getQuick(i, j));
     return h;
 }
+```
 
 ### Bug 2 — IS2_INCONSISTENT_SYNC
 
@@ -463,9 +465,11 @@ Description:
 Recommendation (Fix):
 Вернуть копию массива, либо сделать метод protected/package-private:
 
+```
 public double[] elements() {
     return elements.clone(); // безопасно
 }
+```
 
 
 или документировать, что метод возвращает «unsafe view» (для оптимизации).
@@ -482,10 +486,12 @@ FindBugs предполагает, что оно всегда должно бы�
 Recommendation (Fix):
 Убедиться, что поле инициализируется во всех конструкторах:
 
+```
 public SparseDoubleMatrix2D(int rows, int columns) {
     this.elements = new HashMap<>();
     ...
 }
+```
 
 ### Bug 5 — CN_IDIOM
 
@@ -499,12 +505,14 @@ Description:
 Recommendation (Fix):
 Переопределить clone() для глубокого копирования массива:
 
+```
 @Override
 public DenseDoubleMatrix2D clone() {
     DenseDoubleMatrix2D copy = (DenseDoubleMatrix2D) super.clone();
     copy.elements = this.elements.clone();
     return copy;
 }
+```
 
 ### Bug 6 — NP_NULL_PARAM_DEREF
 
@@ -518,7 +526,9 @@ Description:
 Recommendation (Fix):
 Добавить проверку:
 
+```
 if (other == null) throw new IllegalArgumentException("Matrix must not be null");
+```
 
 ### Bug 7 — SE_NO_SUITABLE_CONSTRUCTOR
 
@@ -532,10 +542,12 @@ Description:
 Recommendation (Fix):
 Добавить конструктор без параметров или явно реализовать методы сериализации:
 
+```
 private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException {
     in.defaultReadObject();
     // восстановить элементы, если нужно
 }
+```
 
 ### Bug 8 — IM_BAD_CHECK_FOR_ODD (производная от деления на ноль)
 
@@ -549,7 +561,9 @@ Description:
 Recommendation (Fix):
 Проверять делитель:
 
+```
 if (norm == 0) throw new ArithmeticException("Division by zero");
+```
 
 ✅ Сводная таблица
 | Bug Code                                        | Class Example          | Severity | Description                              |
